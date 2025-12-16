@@ -6,7 +6,7 @@
 
 **GhostNotes** is a lightweight, powerful Laravel utility that scans your codebase for hidden tags like `@ghost`, `@todo`, or `@fixme` and compiles them into a beautiful, organized Markdown developer diary and a modern Web Dashboard.
 
-
+![dashboard](src/images/ghost-notes.png)
 
 ---
 
@@ -61,6 +61,8 @@ php artisan ghost:write --clear
 4. Viewing the Dashboard
 
 Simply visit the following URL in your local browser: ```http://your-app.test/ghost-notes```
+
+![dashboard](src/images/image.png)
 
 ## ⚙️ Configuration
 The published config file ```(config/ghost-notes.php)``` allows you to customize:
