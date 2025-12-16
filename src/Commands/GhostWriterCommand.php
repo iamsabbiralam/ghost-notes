@@ -9,45 +9,49 @@ class GhostWriterCommand extends Command
 {
       protected $signature = 'ghost:write';
       protected $description = 'Generate a dev-diary from @ghost tags in your code';
-
       public function handle()
       {
-            $this->info('Ghost-Writer is scanning your files...');
+            $tags = config('ghost-notes.tags', ['@ghost']); // get tags from config
+            $filename = config('ghost-notes.filename', 'GHOST_LOG.md');
+            $this->info("Scanning for tags: " . implode(', ', $tags));
 
             $directory = base_path('app');
             $files = File::allFiles($directory);
             $notes = [];
 
+            // dynamic regex pattern making
+            $pattern = '/' . implode('|', array_map('preg_quote', $tags)) . ':(.*)/';
             foreach ($files as $file) {
                   $content = File::get($file);
 
-                  if (preg_match_all('/@ghost:(.*)/', $content, $matches)) {
-                        foreach ($matches[1] as $note) {
+                  if (preg_match_all($pattern, $content, $matches, PREG_SET_ORDER)) {
+                        foreach ($matches as $match) {
+                              // which tag was found
+                              $foundTag = explode(':', $match[0])[0];
                               $notes[] = [
-                                    'file' => $file->getRelativePathname(),
-                                    'text' => trim($note),
-                                    'date' => date('Y-m-d H:i'),
+                                    'tag'   => strtoupper(str_replace('@', '', $foundTag)),
+                                    'file'  => $file->getRelativePathname(),
+                                    'text'  => trim($match[1]),
+                                    'date'  => date('Y-m-d H:i'),
                               ];
                         }
                   }
             }
 
             if (empty($notes)) {
-                  $this->warn("No @ghost tags found in your app folder!");
+                  $this->warn("No notes found!");
                   return;
             }
 
-            $markdown = "# 👻 Ghost-Writer Dev Diary\n\n";
-            $markdown .= "*Generated on: " . date('Y-m-d H:i:s') . "*\n\n---\n\n";
-
+            // Markdown Table Format
+            $markdown = "# 👻 GhostNotes - Dev Diary\n\n";
+            $markdown .= "| Date | Tag | File | Note |\n";
+            $markdown .= "|------|-----|------|------|\n";
             foreach ($notes as $note) {
-                  $markdown .= "### 📅 " . $note['date'] . "\n";
-                  $markdown .= "- **File:** `" . $note['file'] . "`\n";
-                  $markdown .= "- **Note:** " . $note['text'] . "\n\n";
-                  $markdown .= "---\n\n";
+                  $markdown .= "| {$note['date']} | **{$note['tag']}** | `{$note['file']}` | {$note['text']} |\n";
             }
 
-            File::put(base_path('GHOST_LOG.md'), $markdown);
-            $this->info("Success! GHOST_LOG.md has been generated in your project root.");
+            File::put(base_path($filename), $markdown);
+            $this->info("Success! {$filename} generated with " . count($notes) . " notes.");
       }
 }

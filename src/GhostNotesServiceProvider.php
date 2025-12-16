@@ -10,14 +10,18 @@ class GhostNotesServiceProvider extends ServiceProvider
       public function boot()
       {
             if ($this->app->runningInConsole()) {
+                  $this->publishes([
+                        __DIR__ . '/config/ghost-notes.php' => config_path('ghost-notes.php'),
+                  ], 'ghost-notes-config');
+
                   $this->commands([
-                        GhostWriterCommand::class,
+                        \Iamsabbiralam\GhostNotes\Commands\GhostWriterCommand::class,
                   ]);
             }
       }
 
       public function register()
       {
-            //
+            $this->mergeConfigFrom(__DIR__ . '/config/ghost-notes.php', 'ghost-notes');
       }
 }
