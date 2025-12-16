@@ -14,4 +14,5 @@ return [
             'storage',
             'tests'
       ],
+      'git_context' => true,
 ];
