@@ -1,0 +1,22 @@
+{
+  "name": "iamsabbiralam/ghost-notes",
+  "description": "Transform hidden comments into a dev-diary.",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "iamsabbiralam\\GhostNotes\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "iamsabbiralam\\GhostNotes\\GhostNotesServiceProvider"
+      ]
+    }
+  },
+  "require": {
+    "php": "^8.0",
+    "illuminate/support": "^9.0|^10.0|^11.0"
+  }
+}
