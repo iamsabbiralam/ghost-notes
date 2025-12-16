@@ -1,9 +1,9 @@
 <?php
 
-namespace iamsabbiralam\GhostNotes;
+namespace Iamsabbiralam\GhostNotes;
 
 use Illuminate\Support\ServiceProvider;
-use iamsabbiralam\GhostNotes\Commands\GhostWriterCommand;
+use Iamsabbiralam\GhostNotes\Commands\GhostWriterCommand;
 
 class GhostNotesServiceProvider extends ServiceProvider
 {
