@@ -23,15 +23,13 @@ class GhostWriterCommand extends Command
             $pattern = '/' . implode('|', array_map('preg_quote', $tags)) . ':(.*)/';
             foreach ($files as $file) {
                   $content = File::get($file);
-
-                  if (preg_match_all($pattern, $content, $matches, PREG_SET_ORDER)) {
-                        foreach ($matches as $match) {
-                              // which tag was found
-                              $foundTag = explode(':', $match[0])[0];
+                  $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . '):(.*)/';
+                  if (preg_match_all($pattern, $content, $matches)) {
+                        foreach ($matches[1] as $index => $foundTag) {
                               $notes[] = [
                                     'tag'   => strtoupper(str_replace('@', '', $foundTag)),
                                     'file'  => $file->getRelativePathname(),
-                                    'text'  => trim($match[1]),
+                                    'text'  => trim($matches[2][$index]),
                                     'date'  => date('Y-m-d H:i'),
                               ];
                         }
