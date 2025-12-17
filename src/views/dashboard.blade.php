@@ -31,6 +31,28 @@
                 </div>
             </div>
         </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-sm">
+                <span class="text-slate-400 text-sm font-medium uppercase tracking-wider">Total Notes</span>
+                <div class="text-3xl font-bold text-white mt-1">{{ count($rows) }}</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-sm border-l-4 border-l-red-500">
+                <span class="text-slate-400 text-sm font-medium uppercase tracking-wider">High Priority</span>
+                @php $highCount = collect($rows)->where('priority', 'HIGH')->count(); @endphp
+                <div class="text-3xl font-bold text-red-400 mt-1">{{ $highCount }}</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-sm border-l-4 border-l-indigo-500">
+                <span class="text-slate-400 text-sm font-medium uppercase tracking-wider">Authors Involved</span>
+                @php $authorCount = collect($rows)->pluck('author')->unique()->count(); @endphp
+                <div class="text-3xl font-bold text-indigo-400 mt-1">{{ $authorCount }}</div>
+            </div>
+        </div>
+
+        <div class="mb-6 relative">
+            <input type="text" id="ghostSearch" placeholder="Search by note, author or file..."
+                class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-12 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+            <span class="absolute left-4 top-4 text-slate-500 text-xl">🔍</span>
+        </div>
 
         <div class="bg-slate-900 border border-slate-800 shadow-2xl rounded-3xl overflow-hidden">
             <div class="overflow-x-auto">
@@ -118,6 +140,21 @@
         </div>
     </div>
 
+    <script>
+        document.getElementById('ghostSearch').addEventListener('keyup', function() {
+            let searchValue = this.value.toLowerCase();
+            let rows = document.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                let text = row.innerText.toLowerCase();
+                if (text.includes(searchValue)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

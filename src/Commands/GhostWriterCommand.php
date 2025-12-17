@@ -111,5 +111,16 @@ class GhostWriterCommand extends Command
 
             if ($shouldClear) $this->info("Cleared notes from: " . count($modifiedFiles) . " files.");
             $this->info("Success! {$filename} generated with " . count($notes) . " notes.");
+
+            $gitignorePath = base_path('.gitignore');
+            if (File::exists($gitignorePath)) {
+                  $gitignoreContent = File::get($gitignorePath);
+                  if (!str_contains($gitignoreContent, $filename)) {
+                        if ($this->confirm("Do you want to add {$filename} to .gitignore?", true)) {
+                              File::append($gitignorePath, "\n{$filename}\n");
+                              $this->info("Added {$filename} to .gitignore");
+                        }
+                  }
+            }
       }
 }
