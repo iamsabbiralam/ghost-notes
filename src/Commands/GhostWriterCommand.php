@@ -81,8 +81,7 @@ class GhostWriterCommand extends Command
                               $snippetLines = array_slice($lines, $start, ($end - $start) + 1);
                               $snippet = implode("\n", $snippetLines);
 
-                              // VS Code Local Link
-                              $absolutePath = $file->getRealPath();
+                              $absolutePath = str_replace('\\', '/', $file->getRealPath());
                               $vscodeLink = "vscode://file/{$absolutePath}:" . ($lineNumber + 1);
 
                               $notes[] = [

@@ -15,7 +15,6 @@
 </head>
 
 <body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans">
-
     <div class="max-w-7xl mx-auto py-12 px-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
             <div>
@@ -91,8 +90,10 @@
                                 </td>
                                 <td class="py-5 px-8 text-slate-300">{{ $row['author'] }}</td>
                                 <td class="py-5 px-8 flex items-center gap-3">
-                                    <a href="{{ $row['vscode'] }}" title="Open in VS Code"
-                                        class="text-blue-400 hover:scale-125 transition-transform">🖥️</a>
+                                    <a href="{{ $row['vscode'] }}"
+                                        class="text-blue-400 hover:scale-125 transition-transform">
+                                        🖥️ Open in VS Code
+                                    </a>
                                     <a href="{{ $row['link'] }}" target="_blank"
                                         class="text-xs text-indigo-400 underline font-mono truncate max-w-[150px]">
                                         {{ $row['file'] }}
