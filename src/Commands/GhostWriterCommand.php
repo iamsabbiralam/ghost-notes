@@ -128,6 +128,17 @@ class GhostWriterCommand extends Command
                   $this->info("🧹 Cleared notes from: " . count($modifiedFiles) . " files.");
             }
 
+            $historyPath = storage_path('app/ghost-notes/history.json');
+            $history = File::exists($historyPath) ? json_decode(File::get($historyPath), true) : [];
+            if ($shouldClear && count($notes) > 0) {
+                  foreach ($notes as $note) {
+                        $note['resolved_at'] = date('Y-m-d H:i');
+                        $history[] = $note;
+                  }
+
+                  File::put($historyPath, json_encode($history, JSON_PRETTY_PRINT));
+            }
+
             $this->info("✅ Success! {$filename} and Dashboard cache updated.");
 
             // Gitignore Check

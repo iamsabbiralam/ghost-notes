@@ -46,14 +46,21 @@
                 <div class="text-3xl font-bold text-indigo-400 mt-1">{{ $authorCount }}</div>
             </div>
         </div>
-
+        <div class="flex gap-4 mb-8 border-b border-slate-800">
+            <button onclick="switchTab('active')" id="btn-active"
+                class="pb-4 px-6 text-indigo-400 border-b-2 border-indigo-500 font-bold transition-all">Active
+                Graveyard</button>
+            <button onclick="switchTab('resolved')" id="btn-resolved"
+                class="pb-4 px-6 text-slate-500 hover:text-slate-300 font-bold transition-all">Resolved Ghosts
+                🏆</button>
+        </div>
         <div class="mb-6 relative">
             <input type="text" id="ghostSearch" placeholder="Search by note, author or file..."
                 class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-12 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
             <span class="absolute left-4 top-4 text-slate-500 text-xl">🔍</span>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 shadow-2xl rounded-3xl overflow-hidden">
+        <div id="active-table" class="bg-slate-900 border border-slate-800 shadow-2xl rounded-3xl overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
@@ -126,6 +133,31 @@
                 </table>
             </div>
         </div>
+        <div id="resolved-table" class="hidden">
+            <div class="bg-slate-900 border border-slate-800 shadow-2xl rounded-3xl overflow-hidden p-8 text-center">
+                <h2 class="text-xl font-bold text-emerald-400 mb-4">Resolved Technical Debt</h2>
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-800/50 border-b border-slate-700 text-slate-400 text-xs uppercase">
+                            <th class="py-4 px-6">Resolved Date</th>
+                            <th class="py-4 px-6">Tag</th>
+                            <th class="py-4 px-6">Author</th>
+                            <th class="py-4 px-6">Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($history as $item)
+                            <tr class="border-b border-slate-800 text-sm text-slate-300">
+                                <td class="py-4 px-6">{{ $item['resolved_at'] }}</td>
+                                <td class="py-4 px-6 font-bold text-indigo-400">{{ $item['tag'] }}</td>
+                                <td class="py-4 px-6">{{ $item['author'] }}</td>
+                                <td class="py-4 px-6 italic text-slate-400">{{ $item['text'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
         <div
             class="mt-8 flex justify-center items-center gap-2 text-slate-600 text-sm uppercase tracking-widest font-bold">
             <span>Built by</span>
@@ -148,6 +180,25 @@
                 }
             });
         });
+
+        function switchTab(tab) {
+            const activeTab = document.getElementById('active-table');
+            const resolvedTab = document.getElementById('resolved-table');
+            const btnActive = document.getElementById('btn-active');
+            const btnResolved = document.getElementById('btn-resolved');
+
+            if (tab === 'active') {
+                activeTab.classList.remove('hidden');
+                resolvedTab.classList.add('hidden');
+                btnActive.className = "pb-4 px-6 text-indigo-400 border-b-2 border-indigo-500 font-bold transition-all";
+                btnResolved.className = "pb-4 px-6 text-slate-500 hover:text-slate-300 font-bold transition-all";
+            } else {
+                activeTab.classList.add('hidden');
+                resolvedTab.classList.remove('hidden');
+                btnResolved.className = "pb-4 px-6 text-emerald-400 border-b-2 border-emerald-500 font-bold transition-all";
+                btnActive.className = "pb-4 px-6 text-slate-500 hover:text-slate-300 font-bold transition-all";
+            }
+        }
     </script>
 </body>
 

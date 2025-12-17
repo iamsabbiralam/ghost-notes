@@ -5,19 +5,15 @@ use Illuminate\Support\Facades\File;
 
 Route::get('ghost-notes', function () {
       $jsonPath = storage_path('app/ghost-notes/data.json');
+      $historyPath = storage_path('app/ghost-notes/history.json');
 
-      if (app()->environment('production')) {
-            abort(403, 'Unauthorized in production.');
-      }
+      if (app()->environment('production')) abort(403);
 
-      if (!File::exists($jsonPath)) {
-            return "Ghost Notes data not found. <br> 
-                1. Run: <b>php artisan ghost:write</b> <br> 
-                2. Check if this file exists: <b>" . $jsonPath . "</b>";
-      }
+      $activeNotes = File::exists($jsonPath) ? json_decode(File::get($jsonPath), true) : [];
+      $resolvedNotes = File::exists($historyPath) ? json_decode(File::get($historyPath), true) : [];
 
-      // JSON Data
-      $rows = json_decode(File::get($jsonPath), true);
-
-      return view('ghost-notes::dashboard', ['rows' => $rows]);
+      return view('ghost-notes::dashboard', [
+            'rows' => $activeNotes,
+            'history' => $resolvedNotes
+      ]);
 })->middleware('web');
