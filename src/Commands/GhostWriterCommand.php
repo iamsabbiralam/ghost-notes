@@ -12,9 +12,9 @@ class GhostWriterCommand extends Command
 
       public function handle()
       {
-            $tags = config('ghost-notes.tags', ['@ghost']);
+            $tags = config('ghost-notes.tags', ['@ghost', '@todo', '@fixme']);
             $filename = config('ghost-notes.filename', 'GHOST_LOG.md');
-            $ignoreFolders = config('ghost-notes.ignore_folders', []);
+            $ignoreFolders = config('ghost-notes.ignore_folders', ['vendor', 'node_modules', 'storage']);
 
             // --- GitHub Auto-detect ---
             $repoUrl = config('ghost-notes.repo_url');
@@ -26,7 +26,7 @@ class GhostWriterCommand extends Command
                   }
             }
 
-            $this->info("Scanning for tags: " . implode(', ', $tags));
+            $this->info("🔍 Scanning for tags: " . implode(', ', $tags));
 
             $directory = base_path('app');
             $files = File::allFiles($directory);
@@ -46,7 +46,7 @@ class GhostWriterCommand extends Command
                   $newLines = [];
                   $foundInFile = false;
 
-                  // Priority Support Regex
+                  // Regex for Tag, Priority and Message
                   $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . ')(?::(high|medium|low))?:(.*)/i';
 
                   foreach ($lines as $lineNumber => $lineContent) {
@@ -56,7 +56,7 @@ class GhostWriterCommand extends Command
                               $priority = strtoupper($match[2] ?: 'NORMAL');
                               $message = trim($match[3]);
 
-                              // Link Build
+                              // GitHub Link
                               $githubLink = "";
                               if (!empty($repoUrl)) {
                                     $branch = config('ghost-notes.default_branch', 'main');
@@ -64,17 +64,26 @@ class GhostWriterCommand extends Command
                                     $githubLink = "{$repoUrl}/blob/{$branch}/" . $file->getRelativePathname() . "#L{$realLine}";
                               }
 
-                              // Author Logic
+                              // Author Logic via Git Blame
                               $author = "Unknown";
                               if (config('ghost-notes.git_context', true)) {
                                     $realLineNumber = $lineNumber + 1;
-                                    $command = "git blame -L {$realLineNumber},{$realLineNumber} --porcelain " . escapeshellarg($file->getRealPath());
-                                    $output = shell_exec($command);
-                                    if ($output) {
-                                          preg_match('/^author (.*)$/m', $output, $authorMatch);
+                                    $blame = shell_exec("git blame -L {$realLineNumber},{$realLineNumber} --porcelain " . escapeshellarg($file->getRealPath()));
+                                    if ($blame) {
+                                          preg_match('/^author (.*)$/m', $blame, $authorMatch);
                                           $author = $authorMatch[1] ?? "Unknown";
                                     }
                               }
+
+                              // Code Snippet (2 lines before and 2 lines after)
+                              $start = max(0, $lineNumber - 2);
+                              $end = min(count($lines) - 1, $lineNumber + 2);
+                              $snippetLines = array_slice($lines, $start, ($end - $start) + 1);
+                              $snippet = implode("\n", $snippetLines);
+
+                              // VS Code Local Link
+                              $absolutePath = $file->getRealPath();
+                              $vscodeLink = "vscode://file/{$absolutePath}:" . ($lineNumber + 1);
 
                               $notes[] = [
                                     'date'     => date('Y-m-d H:i'),
@@ -83,6 +92,8 @@ class GhostWriterCommand extends Command
                                     'author'   => trim($author),
                                     'file'     => $file->getRelativePathname(),
                                     'link'     => $githubLink,
+                                    'vscode'   => $vscodeLink,
+                                    'snippet'  => base64_encode($snippet),
                                     'text'     => $message,
                               ];
 
@@ -97,7 +108,12 @@ class GhostWriterCommand extends Command
                   }
             }
 
-            // Generate Markdown Table
+            // 1. Save JSON for Dashboard (Super Fast & Detailed)
+            $jsonDir = storage_path('app/ghost-notes');
+            if (!File::exists($jsonDir)) File::makeDirectory($jsonDir, 0755, true);
+            File::put($jsonDir . '/data.json', json_encode($notes));
+
+            // 2. Save Markdown for GitHub (Clean & Simple)
             $markdown = "# 👻 GhostNotes - Dev Diary\n\n";
             $markdown .= "| Date | Tag | Priority | Author | File | Note |\n";
             $markdown .= "|------|-----|----------|--------|------|------|\n";
@@ -106,19 +122,23 @@ class GhostWriterCommand extends Command
                   $fileCell = $note['link'] ? "[{$note['file']}]({$note['link']})" : $note['file'];
                   $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['priority']} | {$note['author']} | {$fileCell} | {$note['text']} |\n";
             }
-
             File::put(base_path($filename), $markdown);
 
-            if ($shouldClear) $this->info("Cleared notes from: " . count($modifiedFiles) . " files.");
-            $this->info("Success! {$filename} generated with " . count($notes) . " notes.");
+            // Success Messages
+            if ($shouldClear && count($modifiedFiles) > 0) {
+                  $this->info("🧹 Cleared notes from: " . count($modifiedFiles) . " files.");
+            }
 
+            $this->info("✅ Success! {$filename} and Dashboard cache updated.");
+
+            // Gitignore Check
             $gitignorePath = base_path('.gitignore');
             if (File::exists($gitignorePath)) {
                   $gitignoreContent = File::get($gitignorePath);
                   if (!str_contains($gitignoreContent, $filename)) {
                         if ($this->confirm("Do you want to add {$filename} to .gitignore?", true)) {
                               File::append($gitignorePath, "\n{$filename}\n");
-                              $this->info("Added {$filename} to .gitignore");
+                              $this->info("📌 Added to .gitignore");
                         }
                   }
             }

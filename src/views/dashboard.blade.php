@@ -75,52 +75,45 @@
                     <tbody class="divide-y divide-slate-800">
                         @forelse($rows as $row)
                             <tr class="group hover:bg-slate-800/30 transition-all duration-200">
-                                <td class="py-5 px-8 whitespace-nowrap text-sm text-slate-400 font-mono">
-                                    {{ $row['date'] }}
-                                </td>
+                                <td class="py-5 px-8 text-sm text-slate-400 font-mono">{{ $row['date'] }}</td>
                                 <td class="py-5 px-8">
                                     <span
                                         class="px-2 py-1 rounded-md text-[10px] font-bold border 
-                {{ $row['priority'] == 'HIGH'
-                    ? 'bg-red-500/20 text-red-400 border-red-500/50'
-                    : ($row['priority'] == 'MEDIUM'
-                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/50'
-                        : 'bg-slate-700 text-slate-400 border-slate-600') }}">
+                {{ $row['priority'] == 'HIGH' ? 'bg-red-500/20 text-red-400 border-red-500/50' : 'bg-slate-700 text-slate-400 border-slate-600' }}">
                                         {{ $row['priority'] }}
                                     </span>
                                 </td>
                                 <td class="py-5 px-8">
                                     <span
                                         class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold tracking-wide uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                                        {{ str_replace('**', '', $row['tag']) }}
+                                        {{ $row['tag'] }}
                                     </span>
                                 </td>
-                                <td class="py-5 px-8 font-medium text-slate-300">
-                                    <div class="flex items-center gap-2">
-                                        <div
-                                            class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-indigo-400 border border-slate-600 uppercase">
-                                            {{ substr($row['author'], 0, 1) }}
-                                        </div>
-                                        {{ $row['author'] }}
-                                    </div>
+                                <td class="py-5 px-8 text-slate-300">{{ $row['author'] }}</td>
+                                <td class="py-5 px-8 flex items-center gap-3">
+                                    <a href="{{ $row['vscode'] }}" title="Open in VS Code"
+                                        class="text-blue-400 hover:scale-125 transition-transform">🖥️</a>
+                                    <a href="{{ $row['link'] }}" target="_blank"
+                                        class="text-xs text-indigo-400 underline font-mono truncate max-w-[150px]">
+                                        {{ $row['file'] }}
+                                    </a>
                                 </td>
-                                <td class="py-5 px-8">
-                                    @if (!empty($row['link']))
-                                        <a href="{{ $row['link'] }}" target="_blank"
-                                            class="text-xs text-indigo-400 hover:text-indigo-300 underline font-mono">
-                                            {{ $row['file'] }} 🔗
-                                        </a>
-                                    @else
-                                        <code class="text-xs text-slate-500 font-mono">{{ $row['file'] }}</code>
-                                    @endif
-                                </td>
-                                <td class="py-5 px-8 text-slate-300 text-sm leading-relaxed">
-                                    {{ $row['message'] }}
+                                <td class="py-5 px-8 text-slate-300 text-sm">{{ $row['text'] }}</td>
+                            </tr>
+                            <tr class="bg-black/20">
+                                <td colspan="6" class="px-8 py-2">
+                                    <details class="group cursor-pointer">
+                                        <summary
+                                            class="text-[10px] text-slate-500 group-hover:text-slate-300 transition-colors uppercase tracking-widest font-bold">
+                                            View Source Code</summary>
+                                        <pre
+                                            class="mt-3 p-4 bg-[#050a15] rounded-lg text-xs font-mono text-emerald-400 overflow-x-auto border border-slate-800 shadow-inner"><code>{{ base64_decode($row['snippet']) }}</code></pre>
+                                    </details>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="py-20 text-center text-slate-500">
+                                <td colspan="6" class="py-20 text-center text-slate-500">
                                     <div class="flex flex-col items-center gap-4">
                                         <span class="text-5xl">🔭</span>
                                         <p class="text-lg">No ghost notes found in the graveyard.</p>
