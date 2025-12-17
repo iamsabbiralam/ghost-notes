@@ -16,12 +16,21 @@ class GhostWriterCommand extends Command
             $filename = config('ghost-notes.filename', 'GHOST_LOG.md');
             $ignoreFolders = config('ghost-notes.ignore_folders', []);
 
+            // --- GitHub Auto-detect ---
+            $repoUrl = config('ghost-notes.repo_url');
+            if (empty($repoUrl)) {
+                  $remote = shell_exec('git remote get-url origin');
+                  if ($remote) {
+                        $repoUrl = str_replace([':', 'git@'], ['/', 'https://'], trim($remote));
+                        $repoUrl = str_replace('.git', '', $repoUrl);
+                  }
+            }
+
             $this->info("Scanning for tags: " . implode(', ', $tags));
 
             $directory = base_path('app');
             $files = File::allFiles($directory);
             $notes = [];
-            $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . '):(.*)/';
             $shouldClear = $this->option('clear');
             $modifiedFiles = [];
 
@@ -37,18 +46,30 @@ class GhostWriterCommand extends Command
                   $newLines = [];
                   $foundInFile = false;
 
+                  // Priority Support Regex
+                  $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . ')(?::(high|medium|low))?:(.*)/i';
+
                   foreach ($lines as $lineNumber => $lineContent) {
                         if (preg_match($pattern, $lineContent, $match)) {
                               $foundInFile = true;
-                              $author = "Unknown";
+                              $tagName = strtoupper(str_replace('@', '', $match[1]));
+                              $priority = strtoupper($match[2] ?: 'NORMAL');
+                              $message = trim($match[3]);
 
+                              // Link Build
+                              $githubLink = "";
+                              if (!empty($repoUrl)) {
+                                    $branch = config('ghost-notes.default_branch', 'main');
+                                    $realLine = $lineNumber + 1;
+                                    $githubLink = "{$repoUrl}/blob/{$branch}/" . $file->getRelativePathname() . "#L{$realLine}";
+                              }
+
+                              // Author Logic
+                              $author = "Unknown";
                               if (config('ghost-notes.git_context', true)) {
                                     $realLineNumber = $lineNumber + 1;
-                                    $filePath = $file->getRealPath();
-                                    // escapeshellarg ব্যবহার করা হয়েছে যা সিকিউরিটির জন্য ভালো
-                                    $command = "git blame -L {$realLineNumber},{$realLineNumber} --porcelain " . escapeshellarg($filePath);
+                                    $command = "git blame -L {$realLineNumber},{$realLineNumber} --porcelain " . escapeshellarg($file->getRealPath());
                                     $output = shell_exec($command);
-
                                     if ($output) {
                                           preg_match('/^author (.*)$/m', $output, $authorMatch);
                                           $author = $authorMatch[1] ?? "Unknown";
@@ -56,47 +77,39 @@ class GhostWriterCommand extends Command
                               }
 
                               $notes[] = [
-                                    'tag'    => strtoupper(str_replace('@', '', $match[1])),
-                                    'file'   => $file->getRelativePathname(),
-                                    'text'   => trim($match[2]),
-                                    'date'   => date('Y-m-d H:i'),
-                                    'author' => trim($author),
+                                    'date'     => date('Y-m-d H:i'),
+                                    'tag'      => $tagName,
+                                    'priority' => $priority,
+                                    'author'   => trim($author),
+                                    'file'     => $file->getRelativePathname(),
+                                    'link'     => $githubLink,
+                                    'text'     => $message,
                               ];
 
-                              // ক্লিয়ার মোড থাকলে এই লাইনটি স্কিপ করবে
-                              if ($shouldClear) {
-                                    continue;
-                              }
+                              if ($shouldClear) continue;
                         }
-
                         $newLines[] = $lineContent;
                   }
 
                   if ($shouldClear && $foundInFile) {
-                        // PHP_EOL ব্যবহার করা নিরাপদ
                         File::put($file->getRealPath(), implode("\n", $newLines));
                         $modifiedFiles[] = $file->getRelativePathname();
                   }
             }
 
-            if ($shouldClear && count($modifiedFiles) > 0) {
-                  $this->info("Cleared notes from: " . count($modifiedFiles) . " files.");
-            }
-
-            if (empty($notes)) {
-                  $this->warn("No notes found!");
-                  return;
-            }
-
+            // Generate Markdown Table
             $markdown = "# 👻 GhostNotes - Dev Diary\n\n";
-            $markdown .= "| Date | Tag | Author | File | Note |\n";
-            $markdown .= "|------|-----|--------|------|------|\n";
+            $markdown .= "| Date | Tag | Priority | Author | File | Note |\n";
+            $markdown .= "|------|-----|----------|--------|------|------|\n";
 
             foreach ($notes as $note) {
-                  $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['author']} | `{$note['file']}` | {$note['text']} |\n";
+                  $fileCell = $note['link'] ? "[{$note['file']}]({$note['link']})" : $note['file'];
+                  $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['priority']} | {$note['author']} | {$fileCell} | {$note['text']} |\n";
             }
 
             File::put(base_path($filename), $markdown);
+
+            if ($shouldClear) $this->info("Cleared notes from: " . count($modifiedFiles) . " files.");
             $this->info("Success! {$filename} generated with " . count($notes) . " notes.");
       }
 }

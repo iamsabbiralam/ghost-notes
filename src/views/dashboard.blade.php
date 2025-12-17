@@ -39,6 +39,8 @@
                         <tr class="bg-slate-800/50 border-b border-slate-700">
                             <th class="py-5 px-8 text-sm font-semibold uppercase tracking-wider text-slate-400">Date
                             </th>
+                            <th class="py-5 px-8 text-sm font-semibold uppercase tracking-wider text-slate-400">Priority
+                            </th>
                             <th class="py-5 px-8 text-sm font-semibold uppercase tracking-wider text-slate-400">Tag</th>
                             <th class="py-5 px-8 text-sm font-semibold uppercase tracking-wider text-slate-400">Author
                             </th>
@@ -51,37 +53,47 @@
                     <tbody class="divide-y divide-slate-800">
                         @forelse($rows as $row)
                             <tr class="group hover:bg-slate-800/30 transition-all duration-200">
-                                <td class="py-5 px-8 whitespace-nowrap">
-                                    <span class="text-slate-400 text-sm font-mono">{{ $row[0] ?? '-' }}</span>
+                                <td class="py-5 px-8 whitespace-nowrap text-sm text-slate-400 font-mono">
+                                    {{ $row['date'] }}
                                 </td>
                                 <td class="py-5 px-8">
                                     <span
-                                        class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold tracking-wide uppercase 
-                                    {{ ($row[1] ?? '') == 'FIXME'
-                                        ? 'bg-red-500/10 text-red-500 border border-red-500/20'
-                                        : (($row[1] ?? '') == 'TODO'
-                                            ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20') }}">
-                                        {{ $row[1] ?? 'NOTE' }}
+                                        class="px-2 py-1 rounded-md text-[10px] font-bold border 
+                {{ $row['priority'] == 'HIGH'
+                    ? 'bg-red-500/20 text-red-400 border-red-500/50'
+                    : ($row['priority'] == 'MEDIUM'
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/50'
+                        : 'bg-slate-700 text-slate-400 border-slate-600') }}">
+                                        {{ $row['priority'] }}
+                                    </span>
+                                </td>
+                                <td class="py-5 px-8">
+                                    <span
+                                        class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold tracking-wide uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                        {{ str_replace('**', '', $row['tag']) }}
                                     </span>
                                 </td>
                                 <td class="py-5 px-8 font-medium text-slate-300">
                                     <div class="flex items-center gap-2">
                                         <div
-                                            class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-indigo-400 border border-slate-600">
-                                            {{ substr($row[2] ?? 'U', 0, 1) }}
+                                            class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-indigo-400 border border-slate-600 uppercase">
+                                            {{ substr($row['author'], 0, 1) }}
                                         </div>
-                                        {{ $row[2] ?? 'Unknown' }}
+                                        {{ $row['author'] }}
                                     </div>
                                 </td>
                                 <td class="py-5 px-8">
-                                    <code
-                                        class="text-xs text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded border border-indigo-500/10 font-mono">
-                                        {{ $row[3] ?? 'app/...' }}
-                                    </code>
+                                    @if (!empty($row['link']))
+                                        <a href="{{ $row['link'] }}" target="_blank"
+                                            class="text-xs text-indigo-400 hover:text-indigo-300 underline font-mono">
+                                            {{ $row['file'] }} 🔗
+                                        </a>
+                                    @else
+                                        <code class="text-xs text-slate-500 font-mono">{{ $row['file'] }}</code>
+                                    @endif
                                 </td>
-                                <td class="py-5 px-8 text-slate-300 text-sm leading-relaxed max-w-xs md:max-w-md">
-                                    {{ $row[4] ?? '-' }}
+                                <td class="py-5 px-8 text-slate-300 text-sm leading-relaxed">
+                                    {{ $row['message'] }}
                                 </td>
                             </tr>
                         @empty
@@ -98,7 +110,6 @@
                 </table>
             </div>
         </div>
-
         <div
             class="mt-8 flex justify-center items-center gap-2 text-slate-600 text-sm uppercase tracking-widest font-bold">
             <span>Built by</span>

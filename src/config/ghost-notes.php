@@ -15,4 +15,8 @@ return [
             'tests'
       ],
       'git_context' => true,
+
+      // GitHub Repo URL (Mane: https://github.com/username/repo-name)
+      'repo_url' => env('GHOST_NOTES_REPO_URL', ''),
+      'default_branch' => 'main',
 ];
