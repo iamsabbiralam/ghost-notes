@@ -148,6 +148,8 @@ class GhostWriterCommand extends Command
             }
 
             $this->export($notes, $format);
+            $this->call('vendor:publish', ['--tag' => 'ghost-notes-config']);
+            $this->info('GhostNotes installed successfully! 👻');
       }
 
       protected function generateMarkdown($notes, $path)
