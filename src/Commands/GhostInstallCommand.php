@@ -12,7 +12,7 @@ class GhostInstallCommand extends Command
 
       public function handle()
       {
-            $this->info('👻 GhostNotes ইন্সটল করা হচ্ছে...');
+            $this->info('👻 GhostNotes installing...');
             $this->call('vendor:publish', [
                   '--tag' => 'ghost-notes-config'
             ]);
