@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Response;
 
 Route::get('ghost-notes', function () {
       $jsonPath = storage_path('app/ghost-notes/data.json');
@@ -17,3 +19,18 @@ Route::get('ghost-notes', function () {
             'history' => $resolvedNotes
       ]);
 })->middleware('web');
+
+Route::get('ghost-notes/export/{format}', function ($format) {
+      Artisan::call("ghost:write --format={$format}");
+
+      $filename = config('ghost-notes.filename', 'GHOST_LOG');
+      $baseFileName = str_replace(['.md', '.json', '.csv'], '', $filename);
+      $extension = ($format == 'markdown') ? 'md' : $format;
+      $path = base_path($baseFileName . '.' . $extension);
+
+      if (File::exists($path)) {
+            return Response::download($path)->deleteFileAfterSend(false);
+      }
+
+      return back()->with('error', 'Export failed.');
+});
