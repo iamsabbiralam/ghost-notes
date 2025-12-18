@@ -21,16 +21,22 @@ Route::get('ghost-notes', function () {
 })->middleware('web');
 
 Route::get('ghost-notes/export/{format}', function ($format) {
-      Artisan::call("ghost:write --format={$format}");
+      try {
+            Artisan::call('ghost:write', [
+                  '--format' => $format
+            ]);
 
-      $filename = config('ghost-notes.filename', 'GHOST_LOG');
-      $baseFileName = str_replace(['.md', '.json', '.csv'], '', $filename);
-      $extension = ($format == 'markdown') ? 'md' : $format;
-      $path = base_path($baseFileName . '.' . $extension);
+            $filename = config('ghost-notes.filename', 'GHOST_LOG');
+            $baseFileName = str_replace(['.md', '.json', '.csv'], '', $filename);
+            $extension = ($format == 'markdown') ? 'md' : $format;
+            $path = base_path($baseFileName . '.' . $extension);
 
-      if (File::exists($path)) {
-            return Response::download($path)->deleteFileAfterSend(false);
+            if (File::exists($path)) {
+                  return Response::download($path);
+            }
+
+            return "File not found at: " . $path;
+      } catch (\Exception $e) {
+            return "GhostNotes Error: " . $e->getMessage();
       }
-
-      return back()->with('error', 'Export failed.');
 });
