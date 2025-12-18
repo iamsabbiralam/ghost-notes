@@ -4,6 +4,7 @@ namespace Iamsabbiralam\GhostNotes;
 
 use Illuminate\Support\ServiceProvider;
 use Iamsabbiralam\GhostNotes\Commands\GhostWriterCommand;
+use Iamsabbiralam\GhostNotes\Commands\GhostInstallCommand;
 
 class GhostNotesServiceProvider extends ServiceProvider
 {
@@ -13,6 +14,7 @@ class GhostNotesServiceProvider extends ServiceProvider
             $this->loadViewsFrom(__DIR__ . '/views', 'ghost-notes');
             $this->commands([
                   GhostWriterCommand::class,
+                  GhostInstallCommand::class,
             ]);
 
             if ($this->app->runningInConsole()) {
