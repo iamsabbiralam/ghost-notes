@@ -146,14 +146,22 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($history as $item)
+                        @forelse ($history as $item)
                             <tr class="border-b border-slate-800 text-sm text-slate-300">
                                 <td class="py-4 px-6">{{ $item['resolved_at'] }}</td>
                                 <td class="py-4 px-6 font-bold text-indigo-400">{{ $item['tag'] }}</td>
                                 <td class="py-4 px-6">{{ $item['author'] }}</td>
                                 <td class="py-4 px-6 italic text-slate-400">{{ $item['text'] }}</td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="4" class="py-20 text-center text-slate-500">
+                                    <div class="flex flex-col items-center gap-4"></div>
+                                    <span class="text-5xl">🎉</span>
+                                    <p class="text-lg">No resolved technical debt found.</p>
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>

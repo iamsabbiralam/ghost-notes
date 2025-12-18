@@ -7,11 +7,14 @@ use Illuminate\Support\Facades\File;
 
 class GhostWriterCommand extends Command
 {
-      protected $signature = 'ghost:write {--clear : Clear notes from code after generating diary}';
-      protected $description = 'Generate a dev-diary from @ghost tags in your code';
+      protected $signature = 'ghost:write 
+            {--clear : Clear notes from code after generating diary} 
+            {--format=markdown : Output format (markdown, json, csv)}';
+      protected $description = 'Generate a dev-diary from @ghost tags and export in multiple formats';
 
       public function handle()
       {
+            $format = $this->option('format');
             $tags = config('ghost-notes.tags', ['@ghost', '@todo', '@fixme']);
             $filename = config('ghost-notes.filename', 'GHOST_LOG.md');
             $ignoreFolders = config('ghost-notes.ignore_folders', ['vendor', 'node_modules', 'storage']);
@@ -112,16 +115,7 @@ class GhostWriterCommand extends Command
             if (!File::exists($jsonDir)) File::makeDirectory($jsonDir, 0755, true);
             File::put($jsonDir . '/data.json', json_encode($notes));
 
-            // 2. Save Markdown for GitHub (Clean & Simple)
-            $markdown = "# 👻 GhostNotes - Dev Diary\n\n";
-            $markdown .= "| Date | Tag | Priority | Author | File | Note |\n";
-            $markdown .= "|------|-----|----------|--------|------|------|\n";
-
-            foreach ($notes as $note) {
-                  $fileCell = $note['link'] ? "[{$note['file']}]({$note['link']})" : $note['file'];
-                  $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['priority']} | {$note['author']} | {$fileCell} | {$note['text']} |\n";
-            }
-            File::put(base_path($filename), $markdown);
+            $this->generateMarkdown($notes, base_path($filename));
 
             // Success Messages
             if ($shouldClear && count($modifiedFiles) > 0) {
@@ -152,5 +146,64 @@ class GhostWriterCommand extends Command
                         }
                   }
             }
+
+            $this->export($notes, $format);
+      }
+
+      protected function generateMarkdown($notes, $path)
+      {
+            $markdown = "# 👻 GhostNotes - Dev Diary\n\n";
+            $markdown .= "| Date | Tag | Priority | Author | File | Note |\n";
+            $markdown .= "|------|-----|----------|--------|------|------|\n";
+
+            foreach ($notes as $note) {
+                  $fileCell = $note['link'] ? "[{$note['file']}]({$note['link']})" : $note['file'];
+                  $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['priority']} | {$note['author']} | {$fileCell} | {$note['text']} |\n";
+            }
+            File::put($path, $markdown);
+      }
+
+      protected function export($notes, $format)
+      {
+            $filename = config('ghost-notes.filename', 'GHOST_LOG');
+            $baseFileName = str_replace(['.md', '.json', '.csv'], '', $filename);
+
+            switch ($format) {
+                  case 'json':
+                        $path = base_path($baseFileName . '.json');
+                        File::put($path, json_encode($notes, JSON_PRETTY_PRINT));
+                        $this->info("📂 Exported as JSON: {$path}");
+                        break;
+
+                  case 'csv':
+                        $path = base_path($baseFileName . '.csv');
+                        $this->generateCsv($notes, $path);
+                        $this->info("📊 Exported as CSV: {$path}");
+                        break;
+
+                  default:
+                        $path = base_path($baseFileName . '.md');
+                        $this->generateMarkdown($notes, $path);
+                        $this->info("📝 Exported as Markdown: {$path}");
+                        break;
+            }
+      }
+
+      protected function generateCsv($notes, $path)
+      {
+            $handle = fopen($path, 'w');
+            fputcsv($handle, ['Date', 'Tag', 'Priority', 'Author', 'File', 'Note']);
+
+            foreach ($notes as $note) {
+                  fputcsv($handle, [
+                        $note['date'],
+                        $note['tag'],
+                        $note['priority'],
+                        $note['author'],
+                        $note['file'],
+                        $note['text']
+                  ]);
+            }
+            fclose($handle);
       }
 }
