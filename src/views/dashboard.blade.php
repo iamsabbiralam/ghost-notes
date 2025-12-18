@@ -14,7 +14,6 @@
 
         @media print {
 
-            /* প্রিন্ট করার সময় বাটন, সার্চবার এবং ট্যাব লুকিয়ে ফেলবে */
             button,
             #ghostSearch,
             .flex.gap-4.mb-8,
@@ -71,25 +70,25 @@
                     <span class="text-2xl font-mono font-bold text-indigo-400">{{ count($rows) }}</span>
                 </div>
             </div>
-        </div>
-        <div class="relative inline-block text-left" x-data="{ open: false }">
-            <button @click="open = !open"
-                class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20">
-                📥 Export Report
-            </button>
-            <div x-show="open" @click.away="open = false"
-                class="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
-                <a href="/ghost-notes/export/csv"
-                    class="block px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 border-b border-slate-700/50">📊
-                    Export as CSV (Excel)</a>
-                <a href="/ghost-notes/export/json"
-                    class="block px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 border-b border-slate-700/50">📁
-                    Export as JSON</a>
-                <a href="/ghost-notes/export/markdown"
-                    class="block px-4 py-3 text-sm text-slate-300 hover:bg-slate-700">📝 Export as Markdown</a>
-                <button onclick="window.print()"
-                    class="w-full text-left block px-4 py-3 text-sm text-emerald-400 hover:bg-slate-700 font-bold">🖨️
-                    Print as PDF</button>
+            <div class="relative inline-block text-left" x-data="{ open: false }">
+                <button @click="open = !open"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20">
+                    📥 Export Report
+                </button>
+                <div x-show="open" @click.away="open = false"
+                    class="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <a href="/ghost-notes/export/csv"
+                        class="block px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 border-b border-slate-700/50">📊
+                        Export as CSV (Excel)</a>
+                    <a href="/ghost-notes/export/json"
+                        class="block px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 border-b border-slate-700/50">📁
+                        Export as JSON</a>
+                    <a href="/ghost-notes/export/markdown"
+                        class="block px-4 py-3 text-sm text-slate-300 hover:bg-slate-700">📝 Export as Markdown</a>
+                    <button onclick="window.print()"
+                        class="w-full text-left block px-4 py-3 text-sm text-emerald-400 hover:bg-slate-700 font-bold">🖨️
+                        Print as PDF</button>
+                </div>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

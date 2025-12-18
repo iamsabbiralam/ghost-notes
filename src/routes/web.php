@@ -22,9 +22,13 @@ Route::get('ghost-notes', function () {
 
 Route::get('ghost-notes/export/{format}', function ($format) {
       try {
-            Artisan::call('ghost:write', [
+            $exitCode = Artisan::call('ghost:write', [
                   '--format' => $format
             ]);
+
+            if ($exitCode !== 0) {
+                  return "Command failed with exit code: " . $exitCode;
+            }
 
             $filename = config('ghost-notes.filename', 'GHOST_LOG');
             $baseFileName = str_replace(['.md', '.json', '.csv'], '', $filename);
