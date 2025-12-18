@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Response;
+use Iamsabbiralam\GhostNotes\Commands\GhostWriterCommand;
 
 Route::get('ghost-notes', function () {
       $jsonPath = storage_path('app/ghost-notes/data.json');
@@ -22,7 +23,7 @@ Route::get('ghost-notes', function () {
 
 Route::get('ghost-notes/export/{format}', function ($format) {
       try {
-            $exitCode = Artisan::call('ghost:write', [
+            $exitCode = Artisan::call(GhostWriterCommand::class, [
                   '--format' => $format
             ]);
 

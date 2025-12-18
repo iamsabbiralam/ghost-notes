@@ -3,6 +3,7 @@
 namespace Iamsabbiralam\GhostNotes;
 
 use Illuminate\Support\ServiceProvider;
+use Iamsabbiralam\GhostNotes\Commands\GhostWriterCommand;
 
 class GhostNotesServiceProvider extends ServiceProvider
 {
@@ -10,15 +11,14 @@ class GhostNotesServiceProvider extends ServiceProvider
       {
             $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
             $this->loadViewsFrom(__DIR__ . '/views', 'ghost-notes');
+            $this->commands([
+                  GhostWriterCommand::class,
+            ]);
 
             if ($this->app->runningInConsole()) {
                   $this->publishes([
                         __DIR__ . '/config/ghost-notes.php' => config_path('ghost-notes.php'),
                   ], 'ghost-notes-config');
-
-                  $this->commands([
-                        \Iamsabbiralam\GhostNotes\Commands\GhostWriterCommand::class,
-                  ]);
             }
       }
 
