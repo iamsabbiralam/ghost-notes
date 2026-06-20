@@ -5,6 +5,7 @@ namespace Iamsabbiralam\GhostNotes;
 use Illuminate\Support\ServiceProvider;
 use Iamsabbiralam\GhostNotes\Commands\GhostWriterCommand;
 use Iamsabbiralam\GhostNotes\Commands\GhostInstallCommand;
+use Iamsabbiralam\GhostNotes\Commands\InstallGhostHookCommand;
 
 class GhostNotesServiceProvider extends ServiceProvider
 {
@@ -15,6 +16,7 @@ class GhostNotesServiceProvider extends ServiceProvider
             $this->commands([
                   GhostWriterCommand::class,
                   GhostInstallCommand::class,
+                  InstallGhostHookCommand::class,
             ]);
 
             if ($this->app->runningInConsole()) {
