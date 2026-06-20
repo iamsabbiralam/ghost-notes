@@ -31,93 +31,109 @@ class GhostWriterCommand extends Command
 
             $this->info("🔍 Scanning for tags: " . implode(', ', $tags));
 
-            $directory = base_path('app');
-            $files = File::allFiles($directory);
+            // Get directories and extensions from config
+            $scanDirectories = config('ghost-notes.scan_directories', ['app']);
+            $allowedExtensions = config('ghost-notes.allowed_extensions', ['php']);
+            $ignoreFolders = config('ghost-notes.ignore_folders', ['vendor', 'node_modules', 'storage']);
+
             $notes = [];
-            $shouldClear = $this->option('clear');
             $modifiedFiles = [];
+            $shouldClear = $this->option('clear');
 
-            foreach ($files as $file) {
-                  foreach ($ignoreFolders as $folder) {
-                        if (str_contains($file->getRelativePathname(), $folder . DIRECTORY_SEPARATOR)) {
-                              continue 2;
-                        }
+            // Loop through each configured directory to scan
+            foreach ($scanDirectories as $scanDir) {
+                  $directoryPath = base_path($scanDir);
+
+                  // check if the directory exists in the project
+                  if (!File::isDirectory($directoryPath)) {
+                        continue;
                   }
 
-                  $content = File::get($file);
-                  $lines = explode("\n", $content);
-                  $newLines = [];
-                  $foundInFile = false;
+                  $files = File::allFiles($directoryPath);
 
-                  // Regex for Tag, Type, Priority and Message
-                  // The regex captures:
-                  // 1. Tag (e.g., @ghost, @todo)
-                  // 2. Optional Type (e.g., fix, feature)
-                  // 3. Optional Priority (e.g., high, medium, low)
-                  // 4. The actual message
-                  $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . ')(?::(fix|feature|breaking|todo|change|note))?(?::(high|medium|low))?:(.*)/i';
-
-                  foreach ($lines as $lineNumber => $lineContent) {
-                        if (preg_match($pattern, $lineContent, $match)) {
-                              $foundInFile = true;
-                              $tagName = strtoupper(str_replace('@', '', $match[1]));
-
-                              // Type Detection (Default category 'GENERAL')
-                              $type = !empty($match[2]) ? strtoupper($match[2]) : 'GENERAL';
-
-                              // Priority Detection (Default 'NORMAL')
-                              $priority = !empty($match[3]) ? strtoupper($match[3]) : 'NORMAL';
-                              $message = trim($match[4]);
-
-                              // GitHub Link
-                              $githubLink = "";
-                              if (!empty($repoUrl)) {
-                                    $branch = config('ghost-notes.default_branch', 'main');
-                                    $realLine = $lineNumber + 1;
-                                    $githubLink = "{$repoUrl}/blob/{$branch}/" . $file->getRelativePathname() . "#L{$realLine}";
+                  foreach ($files as $file) {
+                        // ignore check folders
+                        foreach ($ignoreFolders as $folder) {
+                              if (str_contains($file->getRelativePathname(), $folder . DIRECTORY_SEPARATOR)) {
+                                    continue 2;
                               }
+                        }
 
-                              // Author Logic via Git Blame
-                              $author = "Unknown";
-                              if (config('ghost-notes.git_context', true)) {
-                                    $realLineNumber = $lineNumber + 1;
-                                    $blame = shell_exec("git blame -L {$realLineNumber},{$realLineNumber} --porcelain " . escapeshellarg($file->getRealPath()));
-                                    if ($blame) {
-                                          preg_match('/^author (.*)$/m', $blame, $authorMatch);
-                                          $author = $authorMatch[1] ?? "Unknown";
+                        // Handle double extensions like blade.php
+                        $extension = $file->getExtension();
+                        // blade.php will be considered as php for extension check, but we will also check if blade.php is in allowed extensions
+                        $fullFilename = $file->getFilename();
+                        $isBlade = str_ends_with($fullFilename, '.blade.php');
+
+                        if (!in_array($extension, $allowedExtensions) && !($isBlade && in_array('blade.php', $allowedExtensions))) {
+                              continue;
+                        }
+
+                        // Read file content and look for tags using regex
+                        $content = File::get($file);
+                        $lines = explode("\n", $content);
+                        $newLines = [];
+                        $foundInFile = false;
+                        $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . ')(?::(fix|feature|breaking|todo|change|note))?(?::(high|medium|low))?:(.*)/i';
+
+                        foreach ($lines as $lineNumber => $lineContent) {
+                              if (preg_match($pattern, $lineContent, $match)) {
+                                    $foundInFile = true;
+                                    $tagName = strtoupper(str_replace('@', '', $match[1]));
+                                    $type = !empty($match[2]) ? strtoupper($match[2]) : 'GENERAL';
+                                    $priority = !empty($match[3]) ? strtoupper($match[3]) : 'NORMAL';
+                                    $message = trim($match[4]);
+
+                                    // GitHub Link
+                                    $githubLink = "";
+                                    if (!empty($repoUrl)) {
+                                          $branch = config('ghost-notes.default_branch', 'main');
+                                          $realLine = $lineNumber + 1;
+                                          $githubLink = "{$repoUrl}/blob/{$branch}/" . $file->getRelativePathname() . "#L{$realLine}";
                                     }
+
+                                    // Author Logic via Git Blame
+                                    $author = "Unknown";
+                                    if (config('ghost-notes.git_context', true)) {
+                                          $realLineNumber = $lineNumber + 1;
+                                          $blame = shell_exec("git blame -L {$realLineNumber},{$realLineNumber} --porcelain " . escapeshellarg($file->getRealPath()));
+                                          if ($blame) {
+                                                preg_match('/^author (.*)$/m', $blame, $authorMatch);
+                                                $author = $authorMatch[1] ?? "Unknown";
+                                          }
+                                    }
+
+                                    // Code Snippet
+                                    $start = max(0, $lineNumber - 2);
+                                    $end = min(count($lines) - 1, $lineNumber + 2);
+                                    $snippetLines = array_slice($lines, $start, ($end - $start) + 1);
+                                    $snippet = implode("\n", $snippetLines);
+
+                                    $absolutePath = str_replace('\\', '/', $file->getRealPath());
+                                    $vscodeLink = "vscode://file/{$absolutePath}:" . ($lineNumber + 1);
+
+                                    $notes[] = [
+                                          'date'     => date('Y-m-d H:i'),
+                                          'tag'      => $tagName,
+                                          'type'     => $type,
+                                          'priority' => $priority,
+                                          'author'   => trim($author),
+                                          'file'     => $file->getRelativePathname(),
+                                          'link'     => $githubLink,
+                                          'vscode'   => $vscodeLink,
+                                          'snippet'  => base64_encode($snippet),
+                                          'text'     => $message,
+                                    ];
+
+                                    if ($shouldClear) continue;
                               }
-
-                              // Code Snippet
-                              $start = max(0, $lineNumber - 2);
-                              $end = min(count($lines) - 1, $lineNumber + 2);
-                              $snippetLines = array_slice($lines, $start, ($end - $start) + 1);
-                              $snippet = implode("\n", $snippetLines);
-
-                              $absolutePath = str_replace('\\', '/', $file->getRealPath());
-                              $vscodeLink = "vscode://file/{$absolutePath}:" . ($lineNumber + 1);
-
-                              $notes[] = [
-                                    'date'     => date('Y-m-d H:i'),
-                                    'tag'      => $tagName,
-                                    'type'     => $type,
-                                    'priority' => $priority,
-                                    'author'   => trim($author),
-                                    'file'     => $file->getRelativePathname(),
-                                    'link'     => $githubLink,
-                                    'vscode'   => $vscodeLink,
-                                    'snippet'  => base64_encode($snippet),
-                                    'text'     => $message,
-                              ];
-
-                              if ($shouldClear) continue;
+                              $newLines[] = $lineContent;
                         }
-                        $newLines[] = $lineContent;
-                  }
 
-                  if ($shouldClear && $foundInFile) {
-                        File::put($file->getRealPath(), implode("\n", $newLines));
-                        $modifiedFiles[] = $file->getRelativePathname();
+                        if ($shouldClear && $foundInFile) {
+                              File::put($file->getRealPath(), implode("\n", $newLines));
+                              $modifiedFiles[] = $file->getRelativePathname();
+                        }
                   }
             }
 
