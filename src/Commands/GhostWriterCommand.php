@@ -49,15 +49,25 @@ class GhostWriterCommand extends Command
                   $newLines = [];
                   $foundInFile = false;
 
-                  // Regex for Tag, Priority and Message
-                  $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . ')(?::(high|medium|low))?:(.*)/i';
+                  // Regex for Tag, Type, Priority and Message
+                  // The regex captures:
+                  // 1. Tag (e.g., @ghost, @todo)
+                  // 2. Optional Type (e.g., fix, feature)
+                  // 3. Optional Priority (e.g., high, medium, low)
+                  // 4. The actual message
+                  $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . ')(?::(fix|feature|breaking|todo|change|note))?(?::(high|medium|low))?:(.*)/i';
 
                   foreach ($lines as $lineNumber => $lineContent) {
                         if (preg_match($pattern, $lineContent, $match)) {
                               $foundInFile = true;
                               $tagName = strtoupper(str_replace('@', '', $match[1]));
-                              $priority = strtoupper($match[2] ?: 'NORMAL');
-                              $message = trim($match[3]);
+
+                              // Type Detection (Default category 'GENERAL')
+                              $type = !empty($match[2]) ? strtoupper($match[2]) : 'GENERAL';
+
+                              // Priority Detection (Default 'NORMAL')
+                              $priority = !empty($match[3]) ? strtoupper($match[3]) : 'NORMAL';
+                              $message = trim($match[4]);
 
                               // GitHub Link
                               $githubLink = "";
@@ -78,7 +88,7 @@ class GhostWriterCommand extends Command
                                     }
                               }
 
-                              // Code Snippet (2 lines before and 2 lines after)
+                              // Code Snippet
                               $start = max(0, $lineNumber - 2);
                               $end = min(count($lines) - 1, $lineNumber + 2);
                               $snippetLines = array_slice($lines, $start, ($end - $start) + 1);
@@ -90,6 +100,7 @@ class GhostWriterCommand extends Command
                               $notes[] = [
                                     'date'     => date('Y-m-d H:i'),
                                     'tag'      => $tagName,
+                                    'type'     => $type,
                                     'priority' => $priority,
                                     'author'   => trim($author),
                                     'file'     => $file->getRelativePathname(),
@@ -155,13 +166,45 @@ class GhostWriterCommand extends Command
       protected function generateMarkdown($notes, $path)
       {
             $markdown = "# 👻 GhostNotes - Dev Diary\n\n";
-            $markdown .= "| Date | Tag | Priority | Author | File | Note |\n";
-            $markdown .= "|------|-----|----------|--------|------|------|\n";
+            $markdown .= "Generated on: " . date('Y-m-d H:i:s') . "\n\n";
 
-            foreach ($notes as $note) {
-                  $fileCell = $note['link'] ? "[{$note['file']}]({$note['link']})" : $note['file'];
-                  $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['priority']} | {$note['author']} | {$fileCell} | {$note['text']} |\n";
+            if (empty($notes)) {
+                  $markdown .= "*No notes found in the codebase.* 🎉\n";
+                  File::put($path, $markdown);
+                  return;
             }
+
+            // Group notes by type/category
+            $groupedNotes = [];
+            foreach ($notes as $note) {
+                  $groupedNotes[$note['type']][] = $note;
+            }
+
+            // Category Titles for better readability
+            $categoryTitles = [
+                  'FIX'      => '🔧 Bug Fixes',
+                  'FEATURE'  => '🚀 New Features',
+                  'BREAKING' => '💥 Breaking Changes',
+                  'TODO'     => '📝 Tasks / To-Do',
+                  'CHANGE'   => '🔄 General Changes',
+                  'NOTE'     => '💡 Important Notes',
+                  'GENERAL'  => '📦 General Logs'
+            ];
+
+            // Each group gets its own section with a table
+            foreach ($groupedNotes as $type => $typeNotes) {
+                  $title = $categoryTitles[$type] ?? "📂 " . $type;
+                  $markdown .= "## {$title}\n\n";
+                  $markdown .= "| Date | Tag | Priority | Author | File | Note |\n";
+                  $markdown .= "|------|-----|----------|--------|------|------|\n";
+
+                  foreach ($typeNotes as $note) {
+                        $fileCell = $note['link'] ? "[{$note['file']}]({$note['link']})" : $note['file'];
+                        $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['priority']} | {$note['author']} | {$fileCell} | {$note['text']} |\n";
+                  }
+                  $markdown .= "\n";
+            }
+
             File::put($path, $markdown);
       }
 
