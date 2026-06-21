@@ -2,6 +2,7 @@
 
 namespace Iamsabbiralam\GhostNotes\Commands;
 
+use IamSabbirAlam\GhostNotes\Services\NotificationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
@@ -34,7 +35,6 @@ class GhostWriterCommand extends Command
             // Get directories and extensions from config
             $scanDirectories = config('ghost-notes.scan_directories', ['app']);
             $allowedExtensions = config('ghost-notes.allowed_extensions', ['php']);
-            $ignoreFolders = config('ghost-notes.ignore_folders', ['vendor', 'node_modules', 'storage']);
 
             $notes = [];
             $modifiedFiles = [];
@@ -61,7 +61,6 @@ class GhostWriterCommand extends Command
 
                         // Handle double extensions like blade.php
                         $extension = $file->getExtension();
-                        // blade.php will be considered as php for extension check, but we will also check if blade.php is in allowed extensions
                         $fullFilename = $file->getFilename();
                         $isBlade = str_ends_with($fullFilename, '.blade.php');
 
@@ -74,7 +73,9 @@ class GhostWriterCommand extends Command
                         $lines = explode("\n", $content);
                         $newLines = [];
                         $foundInFile = false;
-                        $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . ')(?::(fix|feature|breaking|todo|change|note))?(?::(high|medium|low))?:(.*)/i';
+
+                        // 🛠️ আপডেট করা রেজেক্স: অপশনাল YYYY-MM-DD ডেডলাইন প্যাটার্ন ম্যাচ করার জন্য
+                        $pattern = '/(' . implode('|', array_map('preg_quote', $tags)) . ')(?::(fix|feature|breaking|todo|change|note))?(?::(high|medium|low))?(?::(\d{4}-\d{2}-\d{2}))?:\s*(.*)/i';
 
                         foreach ($lines as $lineNumber => $lineContent) {
                               if (preg_match($pattern, $lineContent, $match)) {
@@ -82,7 +83,15 @@ class GhostWriterCommand extends Command
                                     $tagName = strtoupper(str_replace('@', '', $match[1]));
                                     $type = !empty($match[2]) ? strtoupper($match[2]) : 'GENERAL';
                                     $priority = !empty($match[3]) ? strtoupper($match[3]) : 'NORMAL';
-                                    $message = trim($match[4]);
+
+                                    // 📅 ডেডলাইন এবং মেসেজ কন্ডিশনাল হ্যান্ডেলিং
+                                    $dueDate = !empty($match[4]) ? $match[4] : null;
+                                    $message = isset($match[5]) ? trim($match[5]) : trim($match[4]);
+
+                                    if (empty($message) && $dueDate) {
+                                          $message = $dueDate;
+                                          $dueDate = null;
+                                    }
 
                                     // GitHub Link
                                     $githubLink = "";
@@ -117,6 +126,7 @@ class GhostWriterCommand extends Command
                                           'tag'      => $tagName,
                                           'type'     => $type,
                                           'priority' => $priority,
+                                          'due_date' => $dueDate, // 📅 নতুন ফিল্ড যোগ হলো JSON এবং ড্যাশবোর্ডের জন্য
                                           'author'   => trim($author),
                                           'file'     => $file->getRelativePathname(),
                                           'link'     => $githubLink,
@@ -137,7 +147,7 @@ class GhostWriterCommand extends Command
                   }
             }
 
-            // 1. Save JSON for Dashboard (Super Fast & Detailed)
+            // Save JSON for Dashboard
             $jsonDir = storage_path('app/ghost-notes');
             if (!File::exists($jsonDir)) File::makeDirectory($jsonDir, 0755, true);
             File::put($jsonDir . '/data.json', json_encode($notes));
@@ -175,8 +185,14 @@ class GhostWriterCommand extends Command
             }
 
             $this->export($notes, $format);
+
+            // রিলিজের পর অটো কনফিগ পাবলিশ কমানো যেতে পারে, তবে এটি আগের মতোই রইল
             $this->call('vendor:publish', ['--tag' => 'ghost-notes-config']);
-            $this->info('GhostNotes installed successfully! 👻');
+
+            $notificationService = new NotificationService();
+            $notificationService->send($notes);
+
+            return Command::SUCCESS;
       }
 
       protected function generateMarkdown($notes, $path)
@@ -196,7 +212,6 @@ class GhostWriterCommand extends Command
                   $groupedNotes[$note['type']][] = $note;
             }
 
-            // Category Titles for better readability
             $categoryTitles = [
                   'FIX'      => '🔧 Bug Fixes',
                   'FEATURE'  => '🚀 New Features',
@@ -207,16 +222,17 @@ class GhostWriterCommand extends Command
                   'GENERAL'  => '📦 General Logs'
             ];
 
-            // Each group gets its own section with a table
             foreach ($groupedNotes as $type => $typeNotes) {
                   $title = $categoryTitles[$type] ?? "📂 " . $type;
                   $markdown .= "## {$title}\n\n";
-                  $markdown .= "| Date | Tag | Priority | Author | File | Note |\n";
-                  $markdown .= "|------|-----|----------|--------|------|------|\n";
+                  // 📅 মার্কডাউনেও ডেডলাইন কলাম যুক্ত করা হলো
+                  $markdown .= "| Date | Tag | Priority | Due Date | Author | File | Note |\n";
+                  $markdown .= "|------|-----|----------|----------|--------|------|------|\n";
 
                   foreach ($typeNotes as $note) {
                         $fileCell = $note['link'] ? "[{$note['file']}]({$note['link']})" : $note['file'];
-                        $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['priority']} | {$note['author']} | {$fileCell} | {$note['text']} |\n";
+                        $dueDateCell = $note['due_date'] ? "`{$note['due_date']}`" : "---";
+                        $markdown .= "| {$note['date']} | **{$note['tag']}** | {$note['priority']} | {$dueDateCell} | {$note['author']} | {$fileCell} | {$note['text']} |\n";
                   }
                   $markdown .= "\n";
             }
@@ -253,13 +269,15 @@ class GhostWriterCommand extends Command
       protected function generateCsv($notes, $path)
       {
             $handle = fopen($path, 'w');
-            fputcsv($handle, ['Date', 'Tag', 'Priority', 'Author', 'File', 'Note']);
+            // 📅 সিএসভিতেও ডেডলাইন কলাম যুক্ত করা হলো
+            fputcsv($handle, ['Date', 'Tag', 'Priority', 'Due Date', 'Author', 'File', 'Note']);
 
             foreach ($notes as $note) {
                   fputcsv($handle, [
                         $note['date'],
                         $note['tag'],
                         $note['priority'],
+                        $note['due_date'] ?? '---',
                         $note['author'],
                         $note['file'],
                         $note['text']

@@ -7,6 +7,7 @@
     <title>GhostNotes - Developer Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -76,6 +77,20 @@
     notes: {{ json_encode($rows) }},
     history: {{ json_encode($history) }},
 
+    // 🚀 পিএইচপি কনফিগ থেকে কাস্টম ট্যাগ ম্যাপ নিয়ে আসা
+    customTags: {{ json_encode($customTags) }},
+
+    // 🎨 ডায়নামিক কালার স্টাইল জেনারেট করার মেথড
+    getTagStyle(tag) {
+        if (!tag) return '';
+        const lowerTag = tag.toLowerCase().replace('@', '');
+        if (this.customTags && this.customTags[lowerTag]) {
+            const config = this.customTags[lowerTag];
+            return `background-color: ${config.bg_color}20; color: ${config.bg_color}; border-color: ${config.bg_color}30;`;
+        }
+        return 'background-color: rgba(99, 102, 241, 0.1); color: #818cf8; border-color: rgba(99, 102, 241, 0.2);';
+    },
+
     get filteredNotes() {
         return this.notes.filter(note => {
             $fileMatch = this.selectedFile === 'all' || note.file === this.selectedFile;
@@ -94,6 +109,39 @@
             files[note.file] = (files[note.file] || 0) + 1;
         });
         return files;
+    },
+
+    resolveTask(note) {
+        if (!confirm('Are you sure you want to resolve this debt? This will clear the comment line from your local code!')) return;
+
+        const parts = note.vscode.split(':');
+        const line = parts[parts.length - 1];
+
+        fetch('/ghost-notes/resolve', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    file: note.file,
+                    line: line
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    this.notes = data.active_notes;
+                    this.history = data.history_notes;
+                    alert(data.message);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Something went wrong!');
+            });
     }
 }">
 
@@ -186,6 +234,24 @@
 
             <main class="flex-1 overflow-y-auto bg-[#0b1222] p-8 main-content">
 
+                <div x-show="currentTab === 'active'" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">👤 Top Debt Creators
+                            (By Author)</h3>
+                        <div class="relative h-64">
+                            <canvas id="authorDebtChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">📅 Weekly Activity
+                            Trend</h3>
+                        <div class="relative h-64">
+                            <canvas id="weeklyActivityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
                 <div x-show="currentTab === 'active'">
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -234,10 +300,45 @@
                                             class="px-2 py-0.5 rounded text-[10px] font-extrabold border uppercase"
                                             x-text="note.type"></span>
 
-                                        <span
-                                            class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                                        <span :style="getTagStyle(note.tag)"
+                                            class="px-2 py-0.5 rounded text-[10px] font-extrabold border uppercase tracking-wider"
                                             x-text="'#' + note.tag"></span>
                                     </div>
+                                    <template x-if="note.due_date">
+                                        <div
+                                            class="flex items-center gap-1.5 ml-2 bg-slate-800/40 px-2 py-1 rounded-xl border border-slate-700/30">
+                                            <span class="text-slate-500">📅</span>
+                                            <span class="font-mono text-[11px] text-slate-300"
+                                                x-text="note.due_date"></span>
+
+                                            <template x-if="note.due_status === 'OVERDUE'">
+                                                <span
+                                                    class="bg-red-600/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase animate-pulse">
+                                                    ⚠️ Overdue by <span x-text="note.days_left"></span> days
+                                                </span>
+                                            </template>
+
+                                            <template x-if="note.due_status === 'TODAY'">
+                                                <span
+                                                    class="bg-amber-600/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase animate-pulse">
+                                                    ⏰ Due Today!
+                                                </span>
+                                            </template>
+
+                                            <template x-if="note.due_status === 'PENDING'">
+                                                <span
+                                                    :class="{
+                                                        'bg-emerald-500/10 text-emerald-400 border-emerald-500/20': note
+                                                            .days_left > 3,
+                                                        'bg-rose-500/10 text-rose-400 border-rose-500/20': note
+                                                            .days_left <= 3
+                                                    }"
+                                                    class="px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase">
+                                                    ⏳ <span x-text="note.days_left"></span> days left
+                                                </span>
+                                            </template>
+                                        </div>
+                                    </template>
 
                                     <div class="flex items-center gap-4 text-slate-400">
                                         <span class="flex items-center gap-1">👤 <span
@@ -250,18 +351,27 @@
                                     <p class="text-slate-200 text-sm font-medium leading-relaxed mb-4"
                                         x-text="note.text"></p>
 
-                                    <div class="flex items-center gap-3 text-[11px] border-t border-slate-800/60 pt-4">
-                                        <a :href="note.vscode"
-                                            class="text-blue-400 hover:underline flex items-center gap-1 font-medium">🖥️
-                                            Open in VS Code</a>
-                                        <template x-if="note.link">
-                                            <a :href="note.link" target="_blank"
-                                                class="text-slate-500 hover:text-indigo-400 font-mono truncate max-w-sm"
-                                                x-text="'📄 ' + note.file"></a>
-                                        </template>
-                                        <template x-if="!note.link">
-                                            <span class="text-slate-600 font-mono" x-text="'📄 ' + note.file"></span>
-                                        </template>
+                                    <div
+                                        class="flex items-center text-[11px] border-t border-slate-800/60 pt-4 justify-between w-full">
+                                        <div class="flex items-center gap-3">
+                                            <a :href="note.vscode"
+                                                class="text-blue-400 hover:underline flex items-center gap-1 font-medium">🖥️
+                                                Open in VS Code</a>
+                                            <template x-if="note.link">
+                                                <a :href="note.link" target="_blank"
+                                                    class="text-slate-500 hover:text-indigo-400 font-mono truncate max-w-xs md:max-w-sm"
+                                                    x-text="'📄 ' + note.file"></a>
+                                            </template>
+                                            <template x-if="!note.link">
+                                                <span class="text-slate-600 font-mono"
+                                                    x-text="'📄 ' + note.file"></span>
+                                            </template>
+                                        </div>
+
+                                        <button @click="resolveTask(note)"
+                                            class="bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 px-3 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm">
+                                            Check Resolve 🏆
+                                        </button>
                                     </div>
 
                                     <details class="group mt-4">
@@ -325,6 +435,118 @@
     </div>
 
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+        // --- ১. Author Debt Chart Data ---
+        const authorData = @json($authorCounts);
+        const authorLabels = Object.keys(authorData);
+        const authorValues = Object.values(authorData);
+
+        new Chart(document.getElementById('authorDebtChart'), {
+            type: 'bar',
+            data: {
+                labels: authorLabels,
+                datasets: [{
+                    label: 'Pending Tags',
+                    data: authorValues,
+                    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                    borderColor: 'rgba(99, 102, 241, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#1e293b'
+                        },
+                        ticks: {
+                            color: '#94a3b8'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#94a3b8'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // --- ২. Weekly Activity Chart Data ---
+        const weeklyStats = @json($weeklyStats);
+        const dateLabels = Object.keys(weeklyStats);
+        const addedTasks = dateLabels.map(date => weeklyStats[date].added);
+        const resolvedTasks = dateLabels.map(date => weeklyStats[date].resolved);
+
+        new Chart(document.getElementById('weeklyActivityChart'), {
+            type: 'line',
+            data: {
+                labels: dateLabels,
+                datasets: [{
+                        label: 'New Tags Added',
+                        data: addedTasks,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Tags Resolved 🏆',
+                        data: resolvedTasks,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#1e293b'
+                        },
+                        ticks: {
+                            color: '#94a3b8'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: '#1e293b'
+                        },
+                        ticks: {
+                            color: '#94a3b8'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#94a3b8',
+                            font: {
+                                family: 'Inter'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>
